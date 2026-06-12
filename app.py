@@ -174,15 +174,20 @@ LOGIN_HTML = """
     
     <script>
         function switchTab(tab) {
-            document.getElementById('loginForm').classList.remove('active');
-            document.getElementById('registerForm').classList.remove('active');
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            var loginForm = document.getElementById('loginForm');
+            var registerForm = document.getElementById('registerForm');
+            var btns = document.querySelectorAll('.tab-btn');
+            loginForm.classList.remove('active');
+            registerForm.classList.remove('active');
+            for(var i = 0; i < btns.length; i++) {
+                btns[i].classList.remove('active');
+            }
             if(tab === 'login') {
-                document.getElementById('loginForm').classList.add('active');
-                document.querySelector('.tab-btn:first-child').classList.add('active');
+                loginForm.classList.add('active');
+                btns[0].classList.add('active');
             } else {
-                document.getElementById('registerForm').classList.add('active');
-                document.querySelector('.tab-btn:last-child').classList.add('active');
+                registerForm.classList.add('active');
+                btns[1].classList.add('active');
             }
         }
     </script>
@@ -240,109 +245,147 @@ def dashboard():
     numbers = VirtualNumber.query.filter_by(is_sold=False).all()
     orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).limit(10).all()
     
-    numbers_html = ""
-    countries_data = {
-        "USA": {"price": 320, "flag": "https://i.ibb.co/pv1YDt7X/photo-AQADIh-Br-G81-GYFV.jpg", "prefix": "+1"},
-        "CANADA": {"price": 365, "flag": "https://i.ibb.co/DHJcy546/photo-AQADIx-Br-G81-GYFVy.jpg", "prefix": "+1"},
-        "UAE": {"price": 385, "flag": "https://i.ibb.co/cS23Q3S3/photo-AQADJBBr-G81-GYFVy.jpg", "prefix": "+971"},
-        "AUSTRALIA": {"price": 325, "flag": "https://i.ibb.co/CKNrdykP/photo-AQADIRBr-G81-GYFVy.jpg", "prefix": "+61"}
-    }
-    
-    for country, data in countries_data.items():
-        numbers_html += f'<div class="country-section"><div class="country-header"><img src="{data["flag"]}"><h3>{country}</h3></div><div class="numbers-list">'
-        for num in numbers:
-            if num.country == country:
-                numbers_html += f'<div class="number-item"><div class="number-info"><img src="{data["flag"]}"><span>{num.number}</span><div class="price-detail">telegram, whatsapp, any app login</div></div><div class="number-price">₹{num.price}</div><button class="buy-btn" onclick="buyNumber({num.id}, {num.price})">BUY</button></div>'
-        numbers_html += '</div></div>'
-    
-    orders_html = ""
-    for o in orders:
-        orders_html += f'<tr><td>{o.order_id}</td><td>{o.number}</td><td>{o.country}</td><td>₹{o.amount}</td><td style="color:#00ff00;">{o.status}</td><td>{o.created_at.strftime("%Y-%m-%d")}</td></tr>'
-    
-    return f'''
+    return render_template_string('''
 <!DOCTYPE html>
 <html>
 <head><title>Dashboard | Virtual Numbers</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-* {{ margin: 0; padding: 0; box-sizing: border-box; font-family: 'Orbitron', monospace; }}
-body {{ background: linear-gradient(135deg, #0a0a2a, #1a0a3a, #2a1a4a); min-height: 100vh; }}
-.navbar {{ background: rgba(10, 10, 42, 0.95); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #aa00ff; }}
-.logo img {{ height: 50px; }}
-.wallet {{ background: linear-gradient(135deg, #aa00ff, #6600cc); padding: 10px 25px; border-radius: 30px; color: white; font-weight: bold; }}
-.menu-btn {{ background: none; border: none; cursor: pointer; display: flex; flex-direction: column; gap: 5px; }}
-.menu-btn span {{ width: 25px; height: 2px; background: #aa00ff; }}
-.sidebar {{ position: fixed; top: 0; right: -300px; width: 280px; height: 100%; background: rgba(10, 10, 42, 0.98); backdrop-filter: blur(15px); border-left: 1px solid #aa00ff; padding: 80px 20px 20px; transition: 0.3s; z-index: 200; }}
-.sidebar.active {{ right: 0; }}
-.sidebar a {{ display: block; color: white; text-decoration: none; padding: 15px; margin: 10px 0; border-radius: 10px; }}
-.sidebar a:hover {{ background: rgba(170,0,255,0.2); color: #aa00ff; }}
-.close-sidebar {{ position: absolute; top: 20px; right: 20px; font-size: 24px; cursor: pointer; color: #aa00ff; }}
-.overlay {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 150; }}
-.container {{ padding: 30px; max-width: 1400px; margin: 0 auto; }}
-.welcome {{ color: #aa00ff; margin-bottom: 30px; font-size: 24px; }}
-.welcome span {{ color: white; }}
-.stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }}
-.stat-card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(170,0,255,0.3); border-radius: 20px; padding: 25px; text-align: center; }}
-.stat-card h3 {{ color: rgba(255,255,255,0.6); font-size: 12px; }}
-.stat-card .value {{ color: #aa00ff; font-size: 32px; font-weight: bold; }}
-.section-title {{ color: #aa00ff; margin: 30px 0 20px; font-size: 20px; }}
-.countries {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px; margin-bottom: 40px; }}
-@media (max-width: 1000px) {{ .countries {{ grid-template-columns: repeat(2, 1fr); }} }}
-@media (max-width: 600px) {{ .countries {{ grid-template-columns: 1fr; }} }}
-.country-section {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(170,0,255,0.3); border-radius: 20px; padding: 20px; }}
-.country-header {{ display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(170,0,255,0.3); }}
-.country-header img {{ width: 40px; height: 30px; object-fit: cover; border-radius: 5px; }}
-.country-header h3 {{ color: #aa00ff; font-size: 18px; }}
-.numbers-list {{ max-height: 500px; overflow-y: auto; }}
-.number-item {{ display: flex; justify-content: space-between; align-items: center; padding: 12px; margin: 8px 0; background: rgba(0,0,0,0.3); border-radius: 10px; }}
-.number-info {{ display: flex; align-items: center; gap: 10px; }}
-.number-info img {{ width: 25px; height: 18px; object-fit: cover; border-radius: 3px; }}
-.number-info span {{ color: white; font-size: 13px; }}
-.price-detail {{ font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 5px; }}
-.number-price {{ color: #aa00ff; font-weight: bold; font-size: 14px; }}
-.buy-btn {{ background: linear-gradient(135deg, #aa00ff, #6600cc); border: none; padding: 6px 15px; border-radius: 20px; color: white; font-weight: bold; cursor: pointer; font-size: 12px; }}
-.table-container {{ background: rgba(255,255,255,0.05); border-radius: 16px; overflow-x: auto; }}
-table {{ width: 100%; border-collapse: collapse; }}
-th, td {{ padding: 12px; text-align: left; color: white; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 12px; }}
-th {{ color: #aa00ff; }}
-.modal {{ display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 300; }}
-.modal-content {{ background: #0a0a2a; padding: 35px; border-radius: 25px; max-width: 450px; width: 90%; border: 1px solid #aa00ff; text-align: center; }}
-.modal-content h2 {{ color: #aa00ff; margin-bottom: 20px; }}
-.modal-content input {{ width: 100%; padding: 14px; margin: 12px 0; background: rgba(255,255,255,0.08); border: 1px solid rgba(170,0,255,0.3); border-radius: 12px; color: white; }}
-.modal-content button {{ width: 100%; padding: 14px; background: linear-gradient(135deg, #aa00ff, #6600cc); border: none; border-radius: 12px; color: white; font-weight: bold; cursor: pointer; margin: 5px 0; }}
-.close-btn {{ background: rgba(255,255,255,0.1); }}
-#qrResult img {{ width: 200px; margin: 10px 0; }}
-.toast {{ position: fixed; bottom: 30px; right: 30px; background: #ff3366; color: white; padding: 12px 20px; border-radius: 10px; z-index: 400; display: none; }}
-.toast.success {{ background: #00cc66; }}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Orbitron',monospace;}
+body{background:linear-gradient(135deg,#0a0a2a,#1a0a3a,#2a1a4a);}
+.navbar{background:rgba(10,10,42,0.95);padding:15px 30px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #aa00ff;}
+.logo img{height:50px;}
+.wallet{background:linear-gradient(135deg,#aa00ff,#6600cc);padding:10px 25px;border-radius:30px;color:white;font-weight:bold;}
+.menu-btn{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;gap:5px;}
+.menu-btn span{width:25px;height:2px;background:#aa00ff;}
+.sidebar{position:fixed;top:0;right:-300px;width:280px;height:100%;background:rgba(10,10,42,0.98);backdrop-filter:blur(15px);border-left:1px solid #aa00ff;padding:80px 20px 20px;transition:0.3s;z-index:200;}
+.sidebar.active{right:0;}
+.sidebar a{display:block;color:white;text-decoration:none;padding:15px;margin:10px 0;border-radius:10px;}
+.sidebar a:hover{background:rgba(170,0,255,0.2);color:#aa00ff;}
+.close-sidebar{position:absolute;top:20px;right:20px;font-size:24px;cursor:pointer;color:#aa00ff;}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;z-index:150;}
+.container{padding:30px;max-width:1400px;margin:0 auto;}
+.welcome{color:#aa00ff;margin-bottom:30px;font-size:24px;}
+.welcome span{color:white;}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:40px;}
+.stat-card{background:rgba(255,255,255,0.05);border:1px solid rgba(170,0,255,0.3);border-radius:20px;padding:25px;text-align:center;}
+.stat-card h3{color:rgba(255,255,255,0.6);font-size:12px;}
+.stat-card .value{color:#aa00ff;font-size:32px;font-weight:bold;}
+.section-title{color:#aa00ff;margin:30px 0 20px;font-size:20px;}
+.countries{display:grid;grid-template-columns:repeat(4,1fr);gap:25px;margin-bottom:40px;}
+@media(max-width:1000px){.countries{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:600px){.countries{grid-template-columns:1fr;}}
+.country-section{background:rgba(255,255,255,0.05);border:1px solid rgba(170,0,255,0.3);border-radius:20px;padding:20px;}
+.country-header{display:flex;align-items:center;gap:15px;margin-bottom:20px;padding-bottom:15px;border-bottom:1px solid rgba(170,0,255,0.3);}
+.country-header img{width:40px;height:30px;object-fit:cover;border-radius:5px;}
+.country-header h3{color:#aa00ff;font-size:18px;}
+.numbers-list{max-height:500px;overflow-y:auto;}
+.number-item{display:flex;justify-content:space-between;align-items:center;padding:12px;margin:8px 0;background:rgba(0,0,0,0.3);border-radius:10px;}
+.number-info{display:flex;align-items:center;gap:10px;}
+.number-info img{width:25px;height:18px;object-fit:cover;border-radius:3px;}
+.number-info span{color:white;font-size:13px;}
+.price-detail{font-size:10px;color:rgba(255,255,255,0.5);margin-top:5px;}
+.number-price{color:#aa00ff;font-weight:bold;font-size:14px;}
+.buy-btn{background:linear-gradient(135deg,#aa00ff,#6600cc);border:none;padding:6px 15px;border-radius:20px;color:white;font-weight:bold;cursor:pointer;font-size:12px;}
+.table-container{background:rgba(255,255,255,0.05);border-radius:16px;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:12px;text-align:left;color:white;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;}
+th{color:#aa00ff;}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);justify-content:center;align-items:center;z-index:300;}
+.modal-content{background:#0a0a2a;padding:35px;border-radius:25px;max-width:450px;width:90%;border:1px solid #aa00ff;text-align:center;}
+.modal-content h2{color:#aa00ff;margin-bottom:20px;}
+.modal-content input{width:100%;padding:14px;margin:12px 0;background:rgba(255,255,255,0.08);border:1px solid rgba(170,0,255,0.3);border-radius:12px;color:white;}
+.modal-content button{width:100%;padding:14px;background:linear-gradient(135deg,#aa00ff,#6600cc);border:none;border-radius:12px;color:white;font-weight:bold;cursor:pointer;margin:5px 0;}
+.close-btn{background:rgba(255,255,255,0.1);}
+#qrResult img{width:200px;margin:10px 0;}
+.toast{position:fixed;bottom:30px;right:30px;background:#ff3366;color:white;padding:12px 20px;border-radius:10px;z-index:400;display:none;}
+.toast.success{background:#00cc66;}
 </style>
 </head>
 <body>
-<div class="navbar"><div class="logo"><img src="https://i.ibb.co/4cHCQB4/photo-AQADKx-Br-G81-GYFV.jpg"></div><div style="display:flex; align-items:center; gap:20px;"><div class="wallet">💰 ₹{user.balance:.2f}</div><button class="menu-btn" onclick="toggleSidebar()"><span></span><span></span><span></span></button></div></div>
+<div class="navbar"><div class="logo"><img src="https://i.ibb.co/4cHCQB4/photo-AQADKx-Br-G81-GYFV.jpg"></div><div style="display:flex;align-items:center;gap:20px;"><div class="wallet">💰 ₹{{ user.balance }}</div><button class="menu-btn" onclick="toggleSidebar()"><span></span><span></span><span></span></button></div></div>
 <div class="sidebar" id="sidebar"><div class="close-sidebar" onclick="toggleSidebar()">X</div><a href="#" onclick="openAddCash()">ADD FUNDS</a><a href="/order-history">MY ORDERS</a><a href="/transaction-history">TRANSACTIONS</a><a href="#" onclick="showNotifications()">NOTIFICATIONS</a><a href="/logout">LOGOUT</a></div>
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 <div id="toast" class="toast"></div>
-<div class="container"><div class="welcome">WELCOME, <span>{user.username.upper()}</span></div>
-<div class="stats"><div class="stat-card"><h3>BALANCE</h3><div class="value">₹{user.balance:.2f}</div></div><div class="stat-card"><h3>ORDERS</h3><div class="value">{len(orders)}</div></div></div>
-<div class="countries">{numbers_html}</div>
+<div class="container"><div class="welcome">WELCOME, <span>{{ user.username }}</span></div>
+<div class="stats"><div class="stat-card"><h3>BALANCE</h3><div class="value">₹{{ user.balance }}</div></div><div class="stat-card"><h3>ORDERS</h3><div class="value">{{ orders|length }}</div></div></div>
+<div class="countries">
+<div class="country-section"><div class="country-header"><img src="https://i.ibb.co/pv1YDt7X/photo-AQADIh-Br-G81-GYFV.jpg"><h3>USA</h3></div><div class="numbers-list">{% for num in numbers if num.country == 'USA' %}<div class="number-item"><div class="number-info"><img src="https://i.ibb.co/pv1YDt7X/photo-AQADIh-Br-G81-GYFV.jpg"><span>{{ num.number }}</span><div class="price-detail">telegram, whatsapp, any app login</div></div><div class="number-price">₹{{ num.price }}</div><button class="buy-btn" onclick="buyNumber({{ num.id }}, {{ num.price }})">BUY</button></div>{% endfor %}</div></div>
+<div class="country-section"><div class="country-header"><img src="https://i.ibb.co/DHJcy546/photo-AQADIx-Br-G81-GYFVy.jpg"><h3>CANADA</h3></div><div class="numbers-list">{% for num in numbers if num.country == 'CANADA' %}<div class="number-item"><div class="number-info"><img src="https://i.ibb.co/DHJcy546/photo-AQADIx-Br-G81-GYFVy.jpg"><span>{{ num.number }}</span><div class="price-detail">telegram, whatsapp, any app login</div></div><div class="number-price">₹{{ num.price }}</div><button class="buy-btn" onclick="buyNumber({{ num.id }}, {{ num.price }})">BUY</button></div>{% endfor %}</div></div>
+<div class="country-section"><div class="country-header"><img src="https://i.ibb.co/cS23Q3S3/photo-AQADJBBr-G81-GYFVy.jpg"><h3>UAE</h3></div><div class="numbers-list">{% for num in numbers if num.country == 'UAE' %}<div class="number-item"><div class="number-info"><img src="https://i.ibb.co/cS23Q3S3/photo-AQADJBBr-G81-GYFVy.jpg"><span>{{ num.number }}</span><div class="price-detail">telegram, whatsapp, any app login</div></div><div class="number-price">₹{{ num.price }}</div><button class="buy-btn" onclick="buyNumber({{ num.id }}, {{ num.price }})">BUY</button></div>{% endfor %}</div></div>
+<div class="country-section"><div class="country-header"><img src="https://i.ibb.co/CKNrdykP/photo-AQADIRBr-G81-GYFVy.jpg"><h3>AUSTRALIA</h3></div><div class="numbers-list">{% for num in numbers if num.country == 'AUSTRALIA' %}<div class="number-item"><div class="number-info"><img src="https://i.ibb.co/CKNrdykP/photo-AQADIRBr-G81-GYFVy.jpg"><span>{{ num.number }}</span><div class="price-detail">telegram, whatsapp, any app login</div></div><div class="number-price">₹{{ num.price }}</div><button class="buy-btn" onclick="buyNumber({{ num.id }}, {{ num.price }})">BUY</button></div>{% endfor %}</div></div>
+</div>
 <h3 class="section-title">RECENT ORDERS</h3>
-<div class="table-container"><table><thead><tr><th>ORDER ID</th><th>NUMBER</th><th>COUNTRY</th><th>AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>{orders_html if orders_html else '<tr><td colspan="6">No orders yet</td></tr>'}</tbody></table></div></div>
+<div class="table-container"><table><thead><tr><th>ORDER ID</th><th>NUMBER</th><th>COUNTRY</th><th>AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>{% for o in orders %}<tr><td>{{ o.order_id }}</td><td>{{ o.number }}</td><td>{{ o.country }}</td><td>₹{{ o.amount }}</td><td style="color:#00ff00;">{{ o.status }}</td><td>{{ o.created_at.strftime('%Y-%m-%d') }}</td></tr>{% else %}<tr><td colspan="6">No orders yet</td></tr>{% endfor %}</tbody></table></div></div>
 <div id="addCashModal" class="modal"><div class="modal-content"><h2>ADD FUNDS</h2><p style="color:#ffaa00;">Minimum Deposit: ₹349</p><input type="number" id="cashAmount" placeholder="AMOUNT (349-10000)" min="349" max="10000"><button onclick="generateQR()">GENERATE QR</button><button class="close-btn" onclick="closeAddCash()">CANCEL</button><div id="qrResult"></div></div></div>
 <div id="notifModal" class="modal"><div class="modal-content"><h2>NOTIFICATIONS</h2><div id="notifContent" style="color:white;">Welcome to Virtual Numbers! Minimum deposit: ₹349</div><button class="close-btn" onclick="closeNotif()">CLOSE</button></div></div>
 <script>
-let userBalance = {user.balance};
-function showToast(msg, success=false){let t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(success?'success':'');t.style.display='block';setTimeout(()=>{t.style.display='none';},3000);}
-function toggleSidebar(){document.getElementById('sidebar').classList.toggle('active');document.getElementById('overlay').style.display=document.getElementById('sidebar').classList.contains('active')?'block':'none';}
-function buyNumber(id,price){if(userBalance<price){showToast('INSUFFICIENT FUNDS! Need ₹'+price,false);setTimeout(()=>{openAddCash();},1500);return;}if(confirm('Buy this number for ₹'+price+'?')){fetch('/buy-number',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'number_id='+id}).then(res=>res.json()).then(data=>{if(data.success){showToast('NUMBER PURCHASED! '+data.number,true);setTimeout(()=>{location.reload();},1500);}else{showToast('ERROR: '+data.error,false);}});}}
-function openAddCash(){document.getElementById('addCashModal').style.display='flex';}
-function closeAddCash(){document.getElementById('addCashModal').style.display='none';document.getElementById('qrResult').innerHTML='';document.getElementById('cashAmount').value='';}
-function generateQR(){let amt=document.getElementById('cashAmount').value;if(amt<349){showToast('Minimum deposit is ₹349',false);return;}if(amt>10000){showToast('Maximum deposit is ₹10000',false);return;}fetch('/add-cash',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'amount='+amt}).then(res=>res.json()).then(data=>{if(data.success){document.getElementById('qrResult').innerHTML='<p style="color:#00ffcc;">PAY: ₹'+data.qr_amount+'</p><img src="data:image/png;base64,'+data.qr_code+'" style="width:200px;"><p style="color:#ffaa00;">TXN ID: '+data.transaction_id+'</p><p>UPI: v76009423@oksbi</p><input type="text" id="verifyTxn" placeholder="Enter Transaction ID" style="width:100%; padding:10px; margin:10px 0;"><button onclick="verifyPayment()">VERIFY PAYMENT</button>';}else{showToast('Error: '+data.error,false);}});}
-function verifyPayment(){let txn=document.getElementById('verifyTxn').value;if(!txn){showToast('Enter Transaction ID',false);return;}fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'transaction_id='+txn}).then(res=>res.json()).then(data=>{if(data.success){showToast('Payment verified! Balance: ₹'+data.balance,true);setTimeout(()=>{location.reload();},1500);}else{showToast('Error: '+data.error,false);}});}
-function showNotifications(){document.getElementById('notifModal').style.display='flex';}
-function closeNotif(){document.getElementById('notifModal').style.display='none';}
+var userBalance = {{ user.balance }};
+function showToast(msg, isSuccess) {
+    var toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'toast';
+    if(isSuccess) { toast.className = 'toast success'; }
+    toast.style.display = 'block';
+    setTimeout(function() { toast.style.display = 'none'; }, 3000);
+}
+function toggleSidebar() {
+    var sidebar = document.getElementById('sidebar');
+    var overlay = document.getElementById('overlay');
+    sidebar.classList.toggle('active');
+    overlay.style.display = sidebar.classList.contains('active') ? 'block' : 'none';
+}
+function buyNumber(id, price) {
+    if(userBalance < price) {
+        showToast('INSUFFICIENT FUNDS! Need ₹' + price, false);
+        setTimeout(function() { openAddCash(); }, 1500);
+        return;
+    }
+    if(confirm('Buy this number for ₹' + price + '?')) {
+        fetch('/buy-number', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'number_id=' + id })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if(data.success) {
+                showToast('NUMBER PURCHASED! ' + data.number, true);
+                setTimeout(function() { location.reload(); }, 1500);
+            } else {
+                showToast('ERROR: ' + data.error, false);
+            }
+        });
+    }
+}
+function openAddCash() { document.getElementById('addCashModal').style.display = 'flex'; }
+function closeAddCash() { document.getElementById('addCashModal').style.display = 'none'; document.getElementById('qrResult').innerHTML = ''; document.getElementById('cashAmount').value = ''; }
+function generateQR() {
+    var amt = document.getElementById('cashAmount').value;
+    if(amt < 349) { showToast('Minimum deposit is ₹349', false); return; }
+    if(amt > 10000) { showToast('Maximum deposit is ₹10000', false); return; }
+    fetch('/add-cash', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'amount=' + amt })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if(data.success) {
+            document.getElementById('qrResult').innerHTML = '<p style="color:#00ffcc;">PAY: ₹' + data.qr_amount + '</p><img src="data:image/png;base64,' + data.qr_code + '" style="width:200px;"><p style="color:#ffaa00;">TXN ID: ' + data.transaction_id + '</p><p>UPI: v76009423@oksbi</p><input type="text" id="verifyTxn" placeholder="Enter Transaction ID" style="width:100%; padding:10px; margin:10px 0;"><button onclick="verifyPayment()">VERIFY PAYMENT</button>';
+        } else { showToast('Error: ' + data.error, false); }
+    });
+}
+function verifyPayment() {
+    var txn = document.getElementById('verifyTxn').value;
+    if(!txn) { showToast('Enter Transaction ID', false); return; }
+    fetch('/verify-payment', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'transaction_id=' + txn })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if(data.success) {
+            showToast('Payment verified! Balance: ₹' + data.balance, true);
+            setTimeout(function() { location.reload(); }, 1500);
+        } else { showToast('Error: ' + data.error, false); }
+    });
+}
+function showNotifications() { document.getElementById('notifModal').style.display = 'flex'; }
+function closeNotif() { document.getElementById('notifModal').style.display = 'none'; }
 </script>
 </body>
 </html>
-    '''
+    ''', user=user, numbers=numbers, orders=orders)
 
 @app.route('/buy-number', methods=['POST'])
 def buy_number():
@@ -421,70 +464,56 @@ def order_history():
     if 'user_id' not in session:
         return redirect('/')
     orders = Order.query.filter_by(user_id=session['user_id']).order_by(Order.created_at.desc()).all()
-    
-    rows = ''
-    for o in orders:
-        rows += f'<tr><td>{o.order_id}</td><td>{o.number}</td><td>{o.country}</td><td>₹{o.amount}</td><td style="color:#00ff00;">{o.status}</td><td>{o.created_at.strftime("%Y-%m-%d %H:%M")}</td></tr>'
-    
-    return f'''
+    return render_template_string('''
 <!DOCTYPE html>
 <html>
 <head><title>Order History | Virtual Numbers</title>
 <style>
-*{{margin:0;padding:0;box-sizing:border-box;font-family:'Orbitron',monospace;}}
-body{{background:linear-gradient(135deg,#0a0a2a,#1a0a3a,#2a1a4a);}}
-.navbar{{background:rgba(10,10,42,0.95);padding:15px 30px;display:flex;justify-content:space-between;border-bottom:1px solid #aa00ff;}}
-.logo img{{height:50px;}}
-.container{{padding:30px;}}
-.back{{color:#aa00ff;text-decoration:none;}}
-.table-container{{background:rgba(255,255,255,0.05);border-radius:16px;overflow-x:auto;margin-top:20px;}}
-table{{width:100%;border-collapse:collapse;}}
-th,td{{padding:12px;color:white;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;}}
-th{{color:#aa00ff;}}
-h2{{color:#aa00ff;margin-bottom:20px;}}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Orbitron',monospace;}
+body{background:linear-gradient(135deg,#0a0a2a,#1a0a3a,#2a1a4a);}
+.navbar{background:rgba(10,10,42,0.95);padding:15px 30px;display:flex;justify-content:space-between;border-bottom:1px solid #aa00ff;}
+.logo img{height:50px;}
+.container{padding:30px;}
+.back{color:#aa00ff;text-decoration:none;}
+.table-container{background:rgba(255,255,255,0.05);border-radius:16px;overflow-x:auto;margin-top:20px;}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:12px;color:white;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;}
+th{color:#aa00ff;}
+h2{color:#aa00ff;margin-bottom:20px;}
 </style>
 </head>
 <body>
 <div class="navbar"><div class="logo"><img src="https://i.ibb.co/4cHCQB4/photo-AQADKx-Br-G81-GYFV.jpg"></div><a href="/dashboard" class="back">BACK</a></div>
-<div class="container"><h2>ORDER HISTORY</h2><div class="table-container"><table><thead><tr><th>ORDER ID</th><th>NUMBER</th><th>COUNTRY</th><th>AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>{rows if rows else '<tr><td colspan="6">No orders yet</td></tr>'}</tbody></table></div></div>
-</body>
-</html>
-    '''
+<div class="container"><h2>ORDER HISTORY</h2><div class="table-container"><tr><thead><tr><th>ORDER ID</th><th>NUMBER</th><th>COUNTRY</th><th>AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>{% for o in orders %}<tr><td style="font-family:monospace;">{{ o.order_id }}<\/td><td>{{ o.number }}<\/td><td>{{ o.country }}<\/td><td>₹{{ o.amount }}<\/td><td style="color:#00ff00;">{{ o.status }}<\/td><td>{{ o.created_at.strftime('%Y-%m-%d %H:%M') }}<\/td><\/tr>{% else %}<tr><td colspan="6">No orders yet<\/td><\/tr>{% endfor %}</tbody><\/table><\/div><\/div><\/body><\/html>
+    ''', orders=orders)
 
 @app.route('/transaction-history')
 def transaction_history():
     if 'user_id' not in session:
         return redirect('/')
     transactions = Transaction.query.filter_by(user_id=session['user_id']).order_by(Transaction.created_at.desc()).all()
-    
-    rows = ''
-    for t in transactions:
-        rows += f'<tr><td style="font-family:monospace;">{t.transaction_id}</td><td>₹{t.amount}</td><td>₹{t.qr_amount}</td><td style="color:#00ff00;">{t.status}</td><td>{t.created_at.strftime("%Y-%m-%d %H:%M")}</td></tr>'
-    
-    return f'''
+    return render_template_string('''
 <!DOCTYPE html>
 <html>
 <head><title>Transaction History | Virtual Numbers</title>
 <style>
-*{{margin:0;padding:0;box-sizing:border-box;font-family:'Orbitron',monospace;}}
-body{{background:linear-gradient(135deg,#0a0a2a,#1a0a3a,#2a1a4a);}}
-.navbar{{background:rgba(10,10,42,0.95);padding:15px 30px;display:flex;justify-content:space-between;border-bottom:1px solid #aa00ff;}}
-.logo img{{height:50px;}}
-.container{{padding:30px;}}
-.back{{color:#aa00ff;text-decoration:none;}}
-.table-container{{background:rgba(255,255,255,0.05);border-radius:16px;overflow-x:auto;margin-top:20px;}}
-table{{width:100%;border-collapse:collapse;}}
-th,td{{padding:12px;color:white;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;}}
-th{{color:#aa00ff;}}
-h2{{color:#aa00ff;margin-bottom:20px;}}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Orbitron',monospace;}
+body{background:linear-gradient(135deg,#0a0a2a,#1a0a3a,#2a1a4a);}
+.navbar{background:rgba(10,10,42,0.95);padding:15px 30px;display:flex;justify-content:space-between;border-bottom:1px solid #aa00ff;}
+.logo img{height:50px;}
+.container{padding:30px;}
+.back{color:#aa00ff;text-decoration:none;}
+.table-container{background:rgba(255,255,255,0.05);border-radius:16px;overflow-x:auto;margin-top:20px;}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:12px;color:white;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;}
+th{color:#aa00ff;}
+h2{color:#aa00ff;margin-bottom:20px;}
 </style>
 </head>
 <body>
 <div class="navbar"><div class="logo"><img src="https://i.ibb.co/4cHCQB4/photo-AQADKx-Br-G81-GYFV.jpg"></div><a href="/dashboard" class="back">BACK</a></div>
-<div class="container"><h2>TRANSACTION HISTORY</h2><div class="table-container"><table><thead><tr><th>TXN ID</th><th>AMOUNT</th><th>QR AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>{rows if rows else '<tr><td colspan="5">No transactions yet</td></tr>'}</tbody></table></div></div>
-</body>
-</html>
-    '''
+<div class="container"><h2>TRANSACTION HISTORY</h2><div class="table-container"><table><thead><tr><th>TXN ID</th><th>AMOUNT</th><th>QR AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>{% for t in transactions %}</td><td style="font-family:monospace;">{{ t.transaction_id }}<\/td><td>₹{{ t.amount }}<\/td><td>₹{{ t.qr_amount }}<\/td><td style="color:#00ff00;">{{ t.status }}<\/td><td>{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}<\/td><\/tr>{% else %}<tr><td colspan="5">No transactions yet<\/td><\/tr>{% endfor %}</tbody><\/table><\/div><\/div><\/body><\/html>
+    ''', transactions=transactions)
 
 @app.route('/admin')
 def admin_panel():
@@ -497,46 +526,37 @@ def admin_panel():
     users = User.query.all()
     orders = Order.query.all()
     numbers = VirtualNumber.query.all()
-    
-    users_html = ""
-    for u in users:
-        users_html += f'<tr><td>{u.id}</td><td>{u.username}</td><td>₹{u.balance}</td><td><input type="number" id="amt_{u.id}" placeholder="AMOUNT" style="width:80px;"><button onclick="addBalance({u.id})">+ ADD</button></td></tr>'
-    
-    orders_html = ""
-    for o in orders:
-        orders_html += f'<tr><td>{o.order_id}</td><td>{o.user_id}</td><td>{o.number}</td><td>₹{o.amount}</td><td>{o.created_at.strftime("%Y-%m-%d")}</td></tr>'
-    
-    return f'''
+    return render_template_string('''
 <!DOCTYPE html>
 <html>
 <head><title>Admin Panel | Virtual Numbers</title>
 <style>
-*{{margin:0;padding:0;box-sizing:border-box;font-family:'Orbitron',monospace;}}
-body{{background:linear-gradient(135deg,#0a0a2a,#1a0a3a,#2a1a4a);}}
-.navbar{{background:rgba(10,10,42,0.95);padding:15px 30px;display:flex;justify-content:space-between;border-bottom:1px solid #aa00ff;}}
-.logo img{{height:50px;}}
-.container{{padding:30px;}}
-.stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:30px;}}
-.stat-card{{background:rgba(255,255,255,0.05);border:1px solid #aa00ff;border-radius:20px;padding:25px;text-align:center;}}
-.stat-card h3{{color:rgba(255,255,255,0.6);font-size:12px;}}
-.stat-card .value{{color:#aa00ff;font-size:28px;font-weight:bold;}}
-.table-container{{background:rgba(255,255,255,0.05);border-radius:16px;overflow-x:auto;margin:20px 0;}}
-table{{width:100%;border-collapse:collapse;}}
-th,td{{padding:10px;color:white;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;}}
-th{{color:#aa00ff;}}
-button{{background:#aa00ff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-weight:bold;color:white;}}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Orbitron',monospace;}
+body{background:linear-gradient(135deg,#0a0a2a,#1a0a3a,#2a1a4a);}
+.navbar{background:rgba(10,10,42,0.95);padding:15px 30px;display:flex;justify-content:space-between;border-bottom:1px solid #aa00ff;}
+.logo img{height:50px;}
+.container{padding:30px;}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:30px;}
+.stat-card{background:rgba(255,255,255,0.05);border:1px solid #aa00ff;border-radius:20px;padding:25px;text-align:center;}
+.stat-card h3{color:rgba(255,255,255,0.6);font-size:12px;}
+.stat-card .value{color:#aa00ff;font-size:28px;font-weight:bold;}
+.table-container{background:rgba(255,255,255,0.05);border-radius:16px;overflow-x:auto;margin:20px 0;}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:10px;color:white;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;}
+th{color:#aa00ff;}
+button{background:#aa00ff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-weight:bold;color:white;}
 </style>
 </head>
 <body>
 <div class="navbar"><div class="logo"><img src="https://i.ibb.co/4cHCQB4/photo-AQADKx-Br-G81-GYFV.jpg"></div><a href="/logout" style="color:#aa00ff;">LOGOUT</a></div>
 <div class="container"><h2 style="color:#aa00ff;">ADMIN PANEL</h2>
-<div class="stats"><div class="stat-card"><h3>TOTAL USERS</h3><div class="value">{len(users)}</div></div><div class="stat-card"><h3>TOTAL ORDERS</h3><div class="value">{len(orders)}</div></div><div class="stat-card"><h3>TOTAL NUMBERS</h3><div class="value">{len(numbers)}</div></div></div>
-<h3 style="color:#aa00ff;">USERS</h3><div class="table-container"><table><thead><tr><th>ID</th><th>USERNAME</th><th>BALANCE</th><th>ACTION</th></tr></thead><tbody>{users_html}</tbody></table></div>
-<h3 style="color:#aa00ff;">ORDERS</h3><div class="table-container"><table><thead><tr><th>ORDER ID</th><th>USER ID</th><th>NUMBER</th><th>AMOUNT</th><th>DATE</th></tr></thead><tbody>{orders_html}</tbody></table></div></div>
-<script>function addBalance(id){let amt=document.getElementById('amt_'+id).value;fetch('/admin/add-balance',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'user_id='+id+'&amount='+amt}).then(()=>location.reload());}</script>
+<div class="stats"><div class="stat-card"><h3>TOTAL USERS</h3><div class="value">{{ users|length }}</div></div><div class="stat-card"><h3>TOTAL ORDERS</h3><div class="value">{{ orders|length }}</div></div><div class="stat-card"><h3>TOTAL NUMBERS</h3><div class="value">{{ numbers|length }}</div></div></div>
+<h3 style="color:#aa00ff;">USERS</h3><div class="table-container"><table><thead><tr><th>ID</th><th>USERNAME</th><th>BALANCE</th><th>ACTION</th></tr></thead><tbody>{% for u in users %}<tr><td>{{ u.id }}<\/td><td>{{ u.username }}<\/td><td>₹{{ u.balance }}<\/td><td><input type="number" id="amt_{{ u.id }}" placeholder="AMOUNT" style="width:80px;"><button onclick="addBalance({{ u.id }})">+ ADD<\/button><\/td><\/tr>{% endfor %}</tbody><\/table><\/div>
+<h3 style="color:#aa00ff;">ORDERS</h3><div class="table-container"><tr><thead><tr><th>ORDER ID</th><th>USER ID</th><th>NUMBER</th><th>AMOUNT</th><th>DATE</th></tr></thead><tbody>{% for o in orders %}<tr><td style="font-family:monospace;">{{ o.order_id }}<\/td><td>{{ o.user_id }}<\/td><td>{{ o.number }}<\/td><td>₹{{ o.amount }}<\/td><td>{{ o.created_at.strftime('%Y-%m-%d') }}<\/td><\/tr>{% endfor %}</tbody><\/table><\/div><\/div>
+<script>function addBalance(id){var amt=document.getElementById('amt_'+id).value;fetch('/admin/add-balance',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'user_id='+id+'&amount='+amt}).then(function(){location.reload();});}</script>
 </body>
 </html>
-    '''
+    ''', users=users, orders=orders, numbers=numbers)
 
 @app.route('/admin/add-balance', methods=['POST'])
 def admin_add_balance():
