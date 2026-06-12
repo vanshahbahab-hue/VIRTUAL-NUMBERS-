@@ -11,8 +11,9 @@ import base64
 app = Flask(__name__)
 app.secret_key = "virtual_secret_key_2024"
 
-# Database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///virtual_numbers.db'
+# ============ DATABASE FIX FOR RENDER ============
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "virtual_numbers.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -123,6 +124,10 @@ def index():
         return redirect('/dashboard')
     return render_template_string(LOGIN_HTML)
 
+@app.route('/health')
+def health():
+    return "OK", 200
+
 @app.route('/login', methods=['POST'])
 def login():
     username = request.form.get('username')
@@ -152,7 +157,7 @@ def register():
     try:
         import requests
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
-                     json={"chat_id": OWNER_ID, "text": f"🆕 𝐍𝐄𝐖 𝐔𝐒𝐄𝐑!\n👤 {username}\n📧 {email}\n🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"})
+                     json={"chat_id": OWNER_ID, "text": f"🆕 NEW USER!\n👤 {username}\n📧 {email}"})
     except:
         pass
     
@@ -184,7 +189,7 @@ def buy_number():
         return jsonify({'error': 'Number not available'}), 400
     
     if user.balance < number.price:
-        return jsonify({'error': f'Insufficient Funds! Need ₹{number.price}. Please add funds to wallet.'}), 400
+        return jsonify({'error': f'Insufficient Funds! Need ₹{number.price}'}), 400
     
     user.balance -= number.price
     number.is_sold = True
@@ -196,13 +201,6 @@ def buy_number():
                   number=number.number, country=number.country, amount=number.price, status='Completed')
     db.session.add(order)
     db.session.commit()
-    
-    try:
-        import requests
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
-                     json={"chat_id": OWNER_ID, "text": f"📞 𝐍𝐔𝐌𝐁𝐄𝐑 𝐏𝐔𝐑𝐂𝐇𝐀𝐒𝐄𝐃!\n👤 {user.username}\n📱 {number.number}\n🌍 {number.country}\n💰 ₹{number.price}"})
-    except:
-        pass
     
     return jsonify({'success': True, 'number': number.number, 'balance': user.balance})
 
@@ -248,51 +246,42 @@ def verify_payment():
     user.balance += transaction.amount
     db.session.commit()
     
-    try:
-        import requests
-        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", 
-                     json={"chat_id": OWNER_ID, "text": f"💰 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐕𝐄𝐑𝐈𝐅𝐈𝐄𝐃!\n👤 {user.username}\n💰 ₹{transaction.amount}\n🔖 {transaction_id}\n💳 New Balance: ₹{user.balance}"})
-    except:
-        pass
-    
     return jsonify({'success': True, 'balance': user.balance})
 
 @app.route('/order-history')
 def order_history():
     if 'user_id' not in session:
         return redirect('/')
-    user = User.query.get(session['user_id'])
-    orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
+    orders = Order.query.filter_by(user_id=session['user_id']).order_by(Order.created_at.desc()).all()
     return render_template_string(ORDER_HISTORY_HTML, orders=orders)
 
 @app.route('/transaction-history')
 def transaction_history():
     if 'user_id' not in session:
         return redirect('/')
-    user = User.query.get(session['user_id'])
-    transactions = Transaction.query.filter_by(user_id=user.id).order_by(Transaction.created_at.desc()).all()
+    transactions = Transaction.query.filter_by(user_id=session['user_id']).order_by(Transaction.created_at.desc()).all()
     return render_template_string(TRANSACTION_HISTORY_HTML, transactions=transactions)
 
 @app.route('/admin')
 def admin_panel():
     if 'user_id' not in session:
-        user = User.query.get(session['user_id'])
-        if not user or not user.is_admin:
-            return redirect('/')
+        return redirect('/')
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_admin:
+        return redirect('/')
     
     users = User.query.all()
     orders = Order.query.all()
-    transactions = Transaction.query.all()
     numbers = VirtualNumber.query.all()
-    
-    return render_template_string(ADMIN_HTML, users=users, orders=orders, transactions=transactions, numbers=numbers)
+    return render_template_string(ADMIN_HTML, users=users, orders=orders, numbers=numbers)
 
 @app.route('/admin/add-balance', methods=['POST'])
 def admin_add_balance():
     if 'user_id' not in session:
-        user = User.query.get(session['user_id'])
-        if not user or not user.is_admin:
-            return jsonify({'error': 'Unauthorized'}), 401
+        return jsonify({'error': 'Unauthorized'}), 401
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 401
     
     user_id = request.form.get('user_id')
     amount = float(request.form.get('amount'))
@@ -377,7 +366,7 @@ LOGIN_HTML = """
         <div class="divider">OR</div>
         <a href="/google-login"><button class="btn" style="background:rgba(255,255,255,0.1); color:white;">SIGN IN WITH GOOGLE</button></a>
         
-        <div class="footer">© 2025 VIRTUAL NUMBERS | ALL RIGHTS RESERVED</div>
+        <div class="footer">© 2025 VIRTUAL NUMBERS</div>
     </div>
     
     <script>
@@ -637,7 +626,7 @@ ORDER_HISTORY_HTML = """
 </head>
 <body><div class="navbar"><div class="logo"><img src="https://i.ibb.co/4cHCQB4/photo-AQADKx-Br-G81-GYFV.jpg"></div><a href="/dashboard" class="back">← BACK</a></div>
 <div class="container"><h2>📜 ORDER HISTORY</h2><div class="table-container"><table><thead><tr><th>ORDER ID</th><th>NUMBER</th><th>COUNTRY</th><th>AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>
-{% for o in orders %}<tr><td style="font-family:monospace;">{{ o.order_id }}</td><td>{{ o.number }}</td><td>{{ o.country }}</td><td>₹{{ o.amount }}<td><td style="color:#00ff00;">{{ o.status }}</td><td>{{ o.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>{% endfor %}
+{% for o in orders %}</td><td style="font-family:monospace;">{{ o.order_id }}</td><td>{{ o.number }}</td><td>{{ o.country }}</td><td>₹{{ o.amount }}</td><td style="color:#00ff00;">{{ o.status }}</td><td>{{ o.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>{% endfor %}
 </tbody></table></div></div></body></html>
 """
 
@@ -648,9 +637,9 @@ TRANSACTION_HISTORY_HTML = """
 <style>@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap');*{margin:0;padding:0;box-sizing:border-box;font-family:'Orbitron',monospace;}body{background:linear-gradient(135deg,#0a0a2a,#1a0a3a,#2a1a4a);}.navbar{background:rgba(10,10,42,0.95);padding:15px 30px;display:flex;justify-content:space-between;border-bottom:1px solid #aa00ff;}.logo img{height:50px;}.container{padding:30px;}.back{color:#aa00ff;text-decoration:none;letter-spacing:1px;}.table-container{background:rgba(255,255,255,0.05);border-radius:16px;overflow-x:auto;margin-top:20px;}table{width:100%;border-collapse:collapse;}th,td{padding:12px;color:white;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12px;}th{color:#aa00ff;}h2{color:#aa00ff;margin-bottom:20px;letter-spacing:2px;}</style>
 </head>
 <body><div class="navbar"><div class="logo"><img src="https://i.ibb.co/4cHCQB4/photo-AQADKx-Br-G81-GYFV.jpg"></div><a href="/dashboard" class="back">← BACK</a></div>
-<div class="container"><h2>💰 TRANSACTION HISTORY</h2><div class="table-container"><table><thead><tr><th>TXN ID</th><th>AMOUNT</th><th>QR AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>
+<div class="container"><h2>💰 TRANSACTION HISTORY</h2><div class="table-container"><tr><thead><tr><th>TXN ID</th><th>AMOUNT</th><th>QR AMOUNT</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>
 {% for t in transactions %}<tr><td style="font-family:monospace;">{{ t.transaction_id }}</td><td>₹{{ t.amount }}</td><td>₹{{ t.qr_amount }}</td><td style="color:#00ff00;">{{ t.status }}</td><td>{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>{% endfor %}
-</tbody></tr></div></div></body></html>
+</tbody></table></div></div></body></html>
 """
 
 ADMIN_HTML = """
@@ -663,7 +652,7 @@ ADMIN_HTML = """
 <div class="container"><h2 style="color:#aa00ff;">👑 ADMIN PANEL</h2>
 <div class="stats"><div class="stat-card"><h3>TOTAL USERS</h3><div class="value">{{ users|length }}</div></div><div class="stat-card"><h3>TOTAL ORDERS</h3><div class="value">{{ orders|length }}</div></div><div class="stat-card"><h3>TOTAL NUMBERS</h3><div class="value">{{ numbers|length }}</div></div></div>
 <h3 style="color:#aa00ff;">📋 USERS</h3><div class="table-container"><table><thead><tr><th>ID</th><th>USERNAME</th><th>BALANCE</th><th>ACTION</th></tr></thead><tbody>{% for u in users %}<tr><td style="font-family:monospace;">{{ u.id }}</td><td>{{ u.username }}</td><td>₹{{ u.balance }}</td><td><input type="number" id="amt_{{ u.id }}" placeholder="AMOUNT" style="width:80px;"><button onclick="addBalance({{ u.id }})">+ ADD</button></td></tr>{% endfor %}</tbody></table></div>
-<h3 style="color:#aa00ff;">📞 ORDERS</h3><div class="table-container"></table><thead><tr><th>ORDER ID</th><th>USER ID</th><th>NUMBER</th><th>AMOUNT</th><th>DATE</th></table></thead><tbody>{% for o in orders %}<tr><td style="font-family:monospace;">{{ o.order_id }}</td><td>{{ o.user_id }}</td><td>{{ o.number }}</td><td>₹{{ o.amount }}</td><td>{{ o.created_at.strftime('%Y-%m-%d') }}</td></tr>{% endfor %}</tbody></table></div></div>
+<h3 style="color:#aa00ff;">📞 ORDERS</h3><div class="table-container"><table><thead><tr><th>ORDER ID</th><th>USER ID</th><th>NUMBER</th><th>AMOUNT</th><th>DATE</th></tr></thead><tbody>{% for o in orders %}<tr><td style="font-family:monospace;">{{ o.order_id }}</td><td>{{ o.user_id }}</td><td>{{ o.number }}</td><td>₹{{ o.amount }}</td><td>{{ o.created_at.strftime('%Y-%m-%d') }}</td></tr>{% endfor %}</tbody></table></div></div>
 <script>function addBalance(id){let amt=document.getElementById('amt_'+id).value;fetch('/admin/add-balance',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'user_id='+id+'&amount='+amt}).then(()=>location.reload());}</script>
 </body></html>
 """
